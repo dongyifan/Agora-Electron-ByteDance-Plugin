@@ -451,6 +451,18 @@ export default class App extends Component {
             "plugin.bytedance.faceAttributeEnabled": true
           }))
           plugin.setParameter(JSON.stringify({
+            "plugin.bytedance.faceStickerItemResourcePath": path.join(__static, "bytedance/resource/StickerResource.bundle/stickers/0c435f3a8187f61b394145575d151e48"),
+            "plugin.bytedance.faceStickerEnabled": true
+          }))
+          plugin.setParameter(JSON.stringify({
+            "plugin.bytedance.mattingModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle//mattingmodel/tt_matting_v9.0.model"),
+            "plugin.bytedance.mattingEnabled": true,
+            "plugin.bytedance.matting.modelType": 0,
+            "plugin.bytedance.matting.edgeModel": 0,
+            "plugin.bytedance.matting.outputMinSideLen": 128
+          }))
+
+          plugin.setParameter(JSON.stringify({
             "plugin.bytedance.handDetectEnabled": true,
             "plugin.bytedance.handDetectModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_det_v9.0.model"),
             "plugin.bytedance.handBoxModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_box_reg_v10.0.model"),

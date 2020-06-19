@@ -398,6 +398,23 @@ bool ByteDancePlugin::onPluginCaptureVideoFrame(VideoPluginFrame *videoFrame)
 			CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set hand enlarge factor failed !");
 			mHandDetectLoaded = true;
 		}
+        if (mNamaInited && mMattingEnabled && !mMattingLoaded) {
+//            // portrait matting
+//            ret = bef_effect_ai_portrait_matting_create(&m_portraitDetectHandle);
+//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: create portrait matting handler failed !");
+//            
+//            ret = bef_effect_ai_matting_check_license(m_portraitDetectHandle, mLicensePath.c_str());
+//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: check_license portrait matting failed");
+//            
+//            ret = bef_effect_ai_portrait_matting_init_model(m_portraitDetectHandle, BEF_MP_LARGE_MODEL, mMattingModelPath.c_str());
+//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set portrait matting model failed !");
+//            
+//            ret = bef_effect_ai_portrait_matting_set_param(m_portraitDetectHandle, BEF_MP_EdgeMode, 1);
+//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set portrait matting edge mode failed !");
+//            
+//            ret = bef_effect_ai_portrait_matting_set_param(m_portraitDetectHandle, BEF_MP_FrashEvery, 15);
+//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set portrait matting frash every failed !");
+        }
 
 		if (mNamaInited) {
 			bef_effect_ai_set_width_height(m_renderMangerHandle, videoFrame->width, videoFrame->height);
@@ -447,6 +464,10 @@ bool ByteDancePlugin::onPluginCaptureVideoFrame(VideoPluginFrame *videoFrame)
 			}
 
 			if (mAIEffectEnabled && mAIEffectLoaded) {
+                if (mFaceStickerEnabled) {
+                    ret = bef_effect_ai_set_effect(m_renderMangerHandle, mFaceStickerItemPath.c_str());
+                    CHECK_BEF_AI_RET_SUCCESS(ret, "apply face sticker failed");
+                }
 				ret = bef_effect_ai_algorithm_buffer(m_renderMangerHandle, (unsigned char*)cacheRGBAVideoFramePtr->buffer,
 					BEF_AI_PIX_FMT_RGBA8888, videoFrame->yStride,
 					videoFrame->height, videoFrame->yStride * 4,
@@ -457,6 +478,7 @@ bool ByteDancePlugin::onPluginCaptureVideoFrame(VideoPluginFrame *videoFrame)
 					(unsigned char*)cacheRGBAVideoFramePtr->buffer, BEF_AI_PIX_FMT_RGBA8888,
 					timestamp);
 			}
+
 #ifndef _WIN32
 			CGLUnlockContext(_glContext);
 #endif
@@ -674,6 +696,38 @@ int ByteDancePlugin::setParameter(const char *param)
 		}
 		mHandDetectPath = std::string(path.GetString());
 	}
+    
+    if (d.HasMember("plugin.bytedance.faceStickerEnabled")) {
+        Value& enabled = d["plugin.bytedance.faceStickerEnabled"];
+        if (!enabled.IsBool()) {
+            return -101;
+        }
+        mFaceStickerEnabled = enabled.GetBool();
+    }
+    
+    if (d.HasMember("plugin.bytedance.faceStickerItemResourcePath")) {
+        Value& path = d["plugin.bytedance.faceStickerItemResourcePath"];
+        if (!path.IsString()) {
+            return -101;
+        }
+        mFaceStickerItemPath = std::string(path.GetString());
+    }
+    
+    if (d.HasMember("plugin.bytedance.mattingEnabled")) {
+        Value& enabled = d["plugin.bytedance.mattingEnabled"];
+        if (!enabled.IsBool()) {
+            return -101;
+        }
+        mMattingEnabled = enabled.GetBool();
+    }
+    
+    if (d.HasMember("plugin.bytedance.mattingModelPath")) {
+        Value& path = d["plugin.bytedance.mattingModelPath"];
+        if (!path.IsString()) {
+            return -101;
+        }
+        mMattingModelPath = std::string(path.GetString());
+    }
 
 	if (d.HasMember("plugin.bytedance.ai.composer.nodes")) {
 		Value& nodes = d["plugin.bytedance.ai.composer.nodes"];

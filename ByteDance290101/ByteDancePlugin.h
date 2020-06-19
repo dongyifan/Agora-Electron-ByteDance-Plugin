@@ -15,6 +15,7 @@
 #include "bef_effect_ai_face_attribute.h"
 #include "bef_effect_ai_auth_msg.h"
 #include "bef_effect_ai_hand.h"
+#include "bef_effect_ai_portrait_matting.h"
 #include <string>
 #include <thread>
 #include <vector>
@@ -110,11 +111,14 @@ protected:
 	bool mReleased = false;
 	bool mAIEffectLoaded = false;
 	bool mAIEffectEnabled = false;
+    bool mFaceStickerEnabled = false;
 	bool mAIEffectNeedUpdate = false;
 	bool mFaceAttributeLoaded = false;
 	bool mFaceAttributeEnabled = false;
 	bool mHandDetectLoaded = false;
 	bool mHandDetectEnabled = false;
+    bool mMattingLoaded = false;
+    bool mMattingEnabled = false;
 	char** mAINodes;
 	SizeType mAINodeCount = 0;
 	std::vector<float> mAINodeIntensities;
@@ -134,6 +138,8 @@ protected:
 	std::string mFaceDetectPath = "";
 	std::string mFaceDetectExtraPath = "";
 	std::string mFaceAttributePath = "";
+    std::string mFaceStickerItemPath = "";
+    std::string mMattingModelPath = "";
 	bef_ai_face_info mFaceInfo;
 	bef_ai_face_attribute_info mFaceAttributeInfo;
 	bef_ai_hand_info mHandInfo;
@@ -141,6 +147,7 @@ protected:
 	bef_effect_handle_t m_handDetectHandle = 0;
 	bef_effect_handle_t m_faceDetectHandle = 0;
 	bef_effect_handle_t m_faceAttributesHandle = 0;
+    bef_effect_handle_t m_portraitDetectHandle = 0;
 	std::vector<ByteDanceBundle> bundles;
 	std::map<int, double> mBeautyOptions;
 	std::unique_ptr<int> items;
