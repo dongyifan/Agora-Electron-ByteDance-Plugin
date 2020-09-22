@@ -117,8 +117,6 @@ protected:
 	bool mFaceAttributeEnabled = false;
 	bool mHandDetectLoaded = false;
 	bool mHandDetectEnabled = false;
-    bool mMattingLoaded = false;
-    bool mMattingEnabled = false;
 	char** mAINodes;
 	SizeType mAINodeCount = 0;
 	std::vector<float> mAINodeIntensities;
@@ -139,7 +137,6 @@ protected:
 	std::string mFaceDetectExtraPath = "";
 	std::string mFaceAttributePath = "";
     std::string mFaceStickerItemPath = "";
-    std::string mMattingModelPath = "";
 	bef_ai_face_info mFaceInfo;
 	bef_ai_face_attribute_info mFaceAttributeInfo;
 	bef_ai_hand_info mHandInfo;

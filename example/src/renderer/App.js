@@ -10,6 +10,9 @@ import WindowPicker from './components/WindowPicker/index.js'
 import DisplayPicker from './components/DisplayPicker/index.js'
 import { VoiceChangerPreset } from 'agora-electron-sdk';
 
+const https = require('https')
+const fs = require('fs')
+
 const isMac = process.platform === 'darwin'
 
 export default class App extends Component {
@@ -416,6 +419,66 @@ export default class App extends Component {
     }
   }
 
+  downloadLicense(data) {
+    return new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'cv-tob.bytedance.com',
+        port: 443,
+        path: '/v1/api/sdk/tob_license/getlicense',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': data.length
+        }
+      }
+
+      const req = https.request(options, (res) => {
+        console.log(`statusCode: ${res.statusCode}`)
+
+        let buffers = []
+        res.on('error', reject)
+        res.on('data', buffer => buffers.push(buffer))
+        res.on(
+          'end',
+          () => {
+            if (res.statusCode === 200) {
+              let resData = Buffer.concat(buffers).toString()
+              let dataObject = JSON.parse(resData)
+              if (dataObject.status_code != 0) {
+                reject(resData)
+              } else {
+                const raw = window.atob(dataObject.data);
+                const rawLength = raw.length
+                const arr = new Uint8Array(new ArrayBuffer(rawLength))
+                for (let i = 0; i < rawLength; i++) {
+                  arr[i] = raw.charCodeAt(i)
+                }
+                let licensePath = path.join(__static, "bytedance/resource/license.licbag")
+                fs.writeFile(licensePath, arr, err => {
+                  if (err) {
+                    console.error("Write license file failed")
+                    reject("Write license file failed")
+                  } else {
+                    console.log("write license successful")
+                    resolve(licensePath)
+                  }
+                }) 
+              }
+              
+            } else {
+              reject(Buffer.concat(buffers).toString())
+            }
+            
+          }
+        )
+      })
+      
+      req.write(data)
+      req.end()
+
+    })
+  }
+
   toggleByteDancePlugin = () => {
     const plugin = this.rtcEngine.getPlugins().find(plugin => plugin.id === 'bytedance' )
     if (plugin) {
@@ -427,82 +490,121 @@ export default class App extends Component {
           bdEnabled: false
         })
       } else {
-        if(isMac) {
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.licensePath": path.join(__static, "bytedance/resource/license.licbag")
-          }))
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.stickerPath": path.join(__static, "bytedance/resource/StickerResource.bundle")
-          }))
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.beauty.resourcepath": path.join(__static, "bytedance/resource/BeautyResource.bundle/IESBeauty")
-          }))
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.beauty.intensity": {
-              1: 1.0,
-              2: 1.0,
-              9: 1.0
+        plugin.setParameter(JSON.stringify({
+          "plugin.bytedance.licenseKey": "Agora_test",
+          "plugin.bytedance.licenseSecret": "2c859f2d2979be1d5ac5090085d5a8ff"
+        }))
+        let authdata1 = plugin.getParameter("plugin.bytedance.authdata")
+        console.log(authdata1)
+        let authdata = plugin.getParameter("plugin.bytedance.authdata")
+        console.log(authdata) 
+
+        this.downloadLicense(authdata)
+          .then(data => {
+            console.log(data)
+            if(isMac) {
+              plugin.setParameter(JSON.stringify({
+                "plugin.bytedance.licensePath": path.join(__static, "bytedance/resource/license.licbag")
+              }))
+              plugin.setParameter(JSON.stringify({
+                "plugin.bytedance.stickerPath": path.join(__static, "bytedance/resource/StickerResource.bundle")
+              }))
+    
+              // plugin.setParameter(JSON.stringify({
+              //   "plugin.bytedance.faceDetectModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/ttfacemodel/tt_face_v7.0.model"),
+              //   "plugin.bytedance.faceDetectExtraModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/ttfacemodel/tt_face_extra_v10.0.model"),
+              //   "plugin.bytedance.faceAttributeModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/ttfaceattri/tt_face_attribute_v5.0.model"),
+              //   "plugin.bytedance.faceAttributeEnabled": true
+              // }))
+              // plugin.setParameter(JSON.stringify({
+              //   "plugin.bytedance.faceStickerItemResourcePath": path.join(__static, "bytedance/resource/StickerResource.bundle/stickers/12dc4ebc9802e812dea2a64ddb0e03d8"),
+              //   "plugin.bytedance.aiEffectEnabled": true,
+              //   "plugin.bytedance.faceStickerEnabled": true
+              // }))
+
+              plugin.setParameter(JSON.stringify(
+                {"plugin.bytedance.aiEffectEnabled": true}
+              ))
+              let ret = plugin.setParameter(JSON.stringify({"plugin.bytedance.ai.composer.nodes": [{
+                path: path.join(__static, "bytedance/resource/ComposeMakeup.bundle/ComposeMakeup/lip/fuguhong"),
+                key: "Internal_Makeup_Lips",
+                intensity: 1.0       
+              },
+              {
+                path: path.join(__static, "bytedance/resource/ComposeMakeup.bundle/ComposeMakeup/blush/weixun"),
+                key: "Internal_Makeup_Blusher",
+                intensity: 1.0        
+              }]}))
+  
+              console.log(`beauty ret = ${ret}`)
+              // plugin.setParameter(JSON.stringify({
+              //   "plugin.bytedance.handDetectEnabled": true,
+              //   "plugin.bytedance.handDetectModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_det_v9.0.model"),
+              //   "plugin.bytedance.handBoxModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_box_reg_v10.0.model"),
+              //   "plugin.bytedance.handGestureModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_gesture_v8.1.model"),
+              //   "plugin.bytedance.handKPModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_kp_v5.0.model"),
+              // }))
+    
+              // this.byteTimer = setInterval(() => {
+              //   console.log(plugin.getParameter("plugin.bytedance.face.attribute"))
+              //   console.log(plugin.getParameter("plugin.bytedance.hand.info"))
+              // }, 1000)
+            } else {
+              plugin.setParameter(JSON.stringify({
+                "plugin.bytedance.licensePath": path.join(__static, "bytedance/resource/license/license.bag")
+              }))
+              plugin.setParameter(JSON.stringify({
+                "plugin.bytedance.stickerPath": path.join(__static, "bytedance/resource/model")
+              }))
+    
+              plugin.setParameter(JSON.stringify({
+                "plugin.bytedance.faceDetectModelPath": path.join(__static, "bytedance/resource/model/ttfacemodel/tt_face_v7.0.model"),
+                "plugin.bytedance.faceAttributeModelPath": path.join(__static, "bytedance/resource/model/ttfaceattrmodel/tt_face_attribute_v5.0.model"),
+                "plugin.bytedance.faceAttributeEnabled": true
+              }))
+    
+              plugin.setParameter(JSON.stringify({
+                "plugin.bytedance.handDetectEnabled": true,
+                "plugin.bytedance.handDetectModelPath": path.join(__static, "bytedance/resource/model/handmodel/tt_hand_det_v8.0.model"),
+                "plugin.bytedance.handBoxModelPath": path.join(__static, "bytedance/resource/model/handmodel/tt_hand_box_reg_v9.0.model"),
+                "plugin.bytedance.handGestureModelPath": path.join(__static, "bytedance/resource/model/handmodel/tt_hand_gesture_v8.0.model"),
+                "plugin.bytedance.handKPModelPath": path.join(__static, "bytedance/resource/model/handmodel/tt_hand_kp_v5.0.model"),
+              }))
+    
+              plugin.setParameter(JSON.stringify({
+                "plugin.bytedance.faceStickerItemResourcePath": path.join(__static, "bytedance/resource/material/stickers/55d13281ffb818ba409ba4185f49a04d"),
+                "plugin.bytedance.aiEffectEnabled": true,
+                "plugin.bytedance.faceStickerEnabled": true
+              }))
+    
+              let ret = plugin.setParameter(JSON.stringify({"plugin.bytedance.ai.composer.nodes": [{
+                path: path.join(__static, "bytedance/resource/material/ComposeMakeup.bundle/ComposeMakeup/lip/fuguhong"),
+                key: "Internal_Makeup_Lips",
+                intensity: 1.0       
+              },
+              {
+                path: path.join(__static, "bytedance/resource/material/ComposeMakeup.bundle/ComposeMakeup/blush/weixun"),
+                key: "Internal_Makeup_Blusher",
+                intensity: 1.0        
+              }]}))
+    
+              console.log(`beauty ret = ${ret}`)
+    
+              this.byteTimer = setInterval(() => {
+                console.log(plugin.getParameter("plugin.bytedance.face.attribute"))
+                console.log(plugin.getParameter("plugin.bytedance.hand.info"))
+              }, 1000)
             }
-          }))
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.faceDetectModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/ttfacemodel/tt_face_v6.0.model"),
-            "plugin.bytedance.faceDetectExtraModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/ttfacemodel/tt_face_extra_v9.0.model"),
-            "plugin.bytedance.faceAttributeModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/ttfaceattri/tt_face_attribute_v4.1.model"),
-            "plugin.bytedance.faceAttributeEnabled": true
-          }))
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.faceStickerItemResourcePath": path.join(__static, "bytedance/resource/StickerResource.bundle/stickers/0c435f3a8187f61b394145575d151e48"),
-            "plugin.bytedance.faceStickerEnabled": true
-          }))
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.mattingModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle//mattingmodel/tt_matting_v9.0.model"),
-            "plugin.bytedance.mattingEnabled": true,
-            "plugin.bytedance.matting.modelType": 0,
-            "plugin.bytedance.matting.edgeModel": 0,
-            "plugin.bytedance.matting.outputMinSideLen": 128
-          }))
-
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.handDetectEnabled": true,
-            "plugin.bytedance.handDetectModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_det_v9.0.model"),
-            "plugin.bytedance.handBoxModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_box_reg_v10.0.model"),
-            "plugin.bytedance.handGestureModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_gesture_v8.1.model"),
-            "plugin.bytedance.handKPModelPath": path.join(__static, "bytedance/resource/StickerResource.bundle/handmodel/tt_hand_kp_v5.0.model"),
-          }))
-
-          this.byteTimer = setInterval(() => {
-            console.log(plugin.getParameter("plugin.bytedance.face.attribute"))
-            console.log(plugin.getParameter("plugin.bytedance.hand.info"))
-          }, 1000)
-        } else {
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.licensePath": path.join(__static, "bytedance/resource/license.bag")
-          }))
-          // plugin.setParameter(JSON.stringify({
-          //   "plugin.bytedance.stickerPath": path.join(__static, "bytedance/resource/StickerResource.bundle")
-          // }))
-          // plugin.setParameter(JSON.stringify({
-          //   "plugin.bytedance.beauty.resourcepath": path.join(__static, "bytedance/resource/BeautyResource.bundle/IESBeauty")
-          // }))
-          // plugin.setParameter(JSON.stringify({
-          //   "plugin.bytedance.beauty.intensity": {
-          //     1: 1.0,
-          //     2: 1.0,
-          //     9: 1.0
-          //   }
-          // }))
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.faceDetectModelPath": path.join(__static, "bytedance/resource/model/ttfacemodel/tt_face_v6.0.model")
-          }))
-          plugin.setParameter(JSON.stringify({
-            "plugin.bytedance.faceAttributeModelPath": path.join(__static, "bytedance/resource/model/ttfaceattrmodel/tt_face_attribute_v4.1.model")
-          }))
-        }
+            
+            plugin.enable();
+            this.setState({
+              bdEnabled: true
+            })
+          })
+          .catch(err => {
+            console.log(err)
+          })
         
-        plugin.enable();
-        this.setState({
-          bdEnabled: true
-        })
       }
     }
   }

@@ -16,7 +16,7 @@
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include "misc.h"
-
+#include <memory>
 
 
 #define MAX_PATH 512
@@ -68,6 +68,7 @@ HMAC_SHA256(const std::vector<uint8_t>& key
 
 std::string hexitize(const std::vector<unsigned char>& input, const char* const digits = "0123456789ABCDEF") {
 
+    auto a = std::make_unique<int>();
 	std::ostringstream output;
 
 	for (unsigned char gap = 0; gap < input.size();) {
@@ -79,7 +80,7 @@ std::string hexitize(const std::vector<unsigned char>& input, const char* const 
 }
 
 
-ByteDancePlugin::ByteDancePlugin() :cacheYuvVideoFramePtr(NULL), cacheRGBAVideoFramePtr(NULL)
+ByteDancePlugin::ByteDancePlugin() :cacheYuvVideoFramePtr(NULL), cacheRGBAVideoFramePtr(NULL), mAINodeCount(0), mAINodes(NULL)
 {
 
 }
@@ -115,14 +116,19 @@ bool ByteDancePlugin::initOpenGL()
 		hw, hgldc, spf, ret, hglrc);
 	glewInit();
 #else
-	CGLPixelFormatAttribute attrib[13] = { kCGLPFAOpenGLProfile,
-		(CGLPixelFormatAttribute)kCGLOGLPVersion_Legacy,
-		kCGLPFAAccelerated,
-		kCGLPFAColorSize, (CGLPixelFormatAttribute)24,
-		kCGLPFAAlphaSize, (CGLPixelFormatAttribute)8,
-		kCGLPFADoubleBuffer,
-		kCGLPFASampleBuffers, (CGLPixelFormatAttribute)1,
-		kCGLPFASamples, (CGLPixelFormatAttribute)4,
+	CGLPixelFormatAttribute attrib[] =
+    {
+//        kCGLPFAOpenGLProfile,  (CGLPixelFormatAttribute)kCGLOGLPVersion_GL3_Core,
+        kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute)kCGLOGLPVersion_Legacy,
+        kCGLPFAAccelerated,
+        kCGLPFANoRecovery,
+        kCGLPFADoubleBuffer,
+        kCGLPFAAllowOfflineRenderers,
+        kCGLPFAStencilSize, (CGLPixelFormatAttribute)8,
+        kCGLPFADepthSize, (CGLPixelFormatAttribute)24,
+        kCGLPFAMultisample,
+        kCGLPFASampleBuffers, (CGLPixelFormatAttribute)1,
+        kCGLPFASamples, (CGLPixelFormatAttribute)4,
 		(CGLPixelFormatAttribute)0 };
 	CGLPixelFormatObj pixelFormat = NULL;
 	GLint numPixelFormats = 0;
@@ -130,9 +136,11 @@ bool ByteDancePlugin::initOpenGL()
 	CGLChoosePixelFormat(attrib, &pixelFormat, &numPixelFormats);
 	CGLError err = CGLCreateContext(pixelFormat, NULL, &cglContext1);
 	CGLSetCurrentContext(cglContext1);
-
-	GLint sync = 1;
-	CGLSetParameter(cglContext1, kCGLCPSwapInterval, &sync);
+    
+    auto cc = glGetString(GL_VERSION);
+    
+//	GLint sync = 1;
+//	CGLSetParameter(cglContext1, kCGLCPSwapInterval, &sync);
 	if (err) {
 		return false;
 	}
@@ -321,6 +329,9 @@ bool ByteDancePlugin::onPluginCaptureVideoFrame(VideoPluginFrame *videoFrame)
 		}
 
 		if (mNamaInited && mAIEffectEnabled && !mAIEffectLoaded) {
+//            char buff[10];
+//            ret = bef_effect_ai_get_version(buff, 10);
+
 			ret = bef_effect_ai_create(&m_renderMangerHandle);
 			CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: create effect handle failed !");
 
@@ -331,6 +342,9 @@ bool ByteDancePlugin::onPluginCaptureVideoFrame(VideoPluginFrame *videoFrame)
 
 			ret = bef_effect_ai_init(m_renderMangerHandle, 0, 0, mStickerPath.c_str(), "");
 			CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: init effect handle failed !");
+
+            ret = bef_effect_ai_composer_set_mode(m_renderMangerHandle, 1, 0);
+
 			mAIEffectLoaded = true;
 		}
 
@@ -380,16 +394,16 @@ bool ByteDancePlugin::onPluginCaptureVideoFrame(VideoPluginFrame *videoFrame)
 			ret = bef_effect_ai_hand_check_license(m_handDetectHandle, mLicensePath.c_str());
 			CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: check_license hand detect failed");
 
-			ret = bef_effect_ai_hand_detect_setmodel(m_handDetectHandle, BEF_HAND_MODEL_DETECT, mHandDetectPath.c_str());
+			ret = bef_effect_ai_hand_detect_setmodel(m_handDetectHandle, BEF_AI_HAND_MODEL_DETECT, mHandDetectPath.c_str());
 			CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set hand detect model failed !");
 
-			ret = bef_effect_ai_hand_detect_setmodel(m_handDetectHandle, BEF_HAND_MODEL_BOX_REG, mHandBoxPath.c_str());
+			ret = bef_effect_ai_hand_detect_setmodel(m_handDetectHandle, BEF_AI_HAND_MODEL_BOX_REG, mHandBoxPath.c_str());
 			CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set hand box model failed !");
 
-			ret = bef_effect_ai_hand_detect_setmodel(m_handDetectHandle, BEF_HAND_MODEL_GESTURE_CLS, mHandGesturePath.c_str());
+			ret = bef_effect_ai_hand_detect_setmodel(m_handDetectHandle, BEF_AI_HAND_MODEL_GESTURE_CLS, mHandGesturePath.c_str());
 			CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set hand gesture model failed !");
 
-			ret = bef_effect_ai_hand_detect_setmodel(m_handDetectHandle, BEF_HAND_MODEL_KEY_POINT, mHandKPPath.c_str());
+			ret = bef_effect_ai_hand_detect_setmodel(m_handDetectHandle, BEF_AI_HAND_MODEL_KEY_POINT, mHandKPPath.c_str());
 			CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set hand key points model failed !");
 
 			ret = bef_effect_ai_hand_detect_setparam(m_handDetectHandle, BEF_HAND_MAX_HAND_NUM, 1);
@@ -398,29 +412,13 @@ bool ByteDancePlugin::onPluginCaptureVideoFrame(VideoPluginFrame *videoFrame)
 			CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set hand enlarge factor failed !");
 			mHandDetectLoaded = true;
 		}
-        if (mNamaInited && mMattingEnabled && !mMattingLoaded) {
-//            // portrait matting
-//            ret = bef_effect_ai_portrait_matting_create(&m_portraitDetectHandle);
-//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: create portrait matting handler failed !");
-//            
-//            ret = bef_effect_ai_matting_check_license(m_portraitDetectHandle, mLicensePath.c_str());
-//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: check_license portrait matting failed");
-//            
-//            ret = bef_effect_ai_portrait_matting_init_model(m_portraitDetectHandle, BEF_MP_LARGE_MODEL, mMattingModelPath.c_str());
-//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set portrait matting model failed !");
-//            
-//            ret = bef_effect_ai_portrait_matting_set_param(m_portraitDetectHandle, BEF_MP_EdgeMode, 1);
-//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set portrait matting edge mode failed !");
-//            
-//            ret = bef_effect_ai_portrait_matting_set_param(m_portraitDetectHandle, BEF_MP_FrashEvery, 15);
-//            CHECK_BEF_AI_RET_SUCCESS(ret, "EffectHandle::initializeHandle:: set portrait matting frash every failed !");
-        }
 
 		if (mNamaInited) {
 			bef_effect_ai_set_width_height(m_renderMangerHandle, videoFrame->width, videoFrame->height);
 			// 4. make it beautiful
 #ifndef _WIN32
 			CGLLockContext(_glContext);
+            auto s = CGLGetCurrentContext();
 #endif
 			checkCreateVideoFrame(videoFrame);
 			yuvData(videoFrame, cacheYuvVideoFramePtr);
@@ -456,13 +454,13 @@ bool ByteDancePlugin::onPluginCaptureVideoFrame(VideoPluginFrame *videoFrame)
 				else {
 					bef_ai_hand_info handInfo;
 					ret = bef_effect_ai_hand_detect(m_handDetectHandle, (unsigned char*)cacheRGBAVideoFramePtr->buffer, BEF_AI_PIX_FMT_RGBA8888, videoFrame->yStride, videoFrame->height, videoFrame->yStride * 4, BEF_AI_CLOCKWISE_ROTATE_0,
-						BEF_HAND_MODEL_DETECT | BEF_HAND_MODEL_BOX_REG |
-						BEF_HAND_MODEL_GESTURE_CLS | BEF_HAND_MODEL_KEY_POINT, &handInfo, 0);
+						BEF_AI_HAND_MODEL_DETECT | BEF_AI_HAND_MODEL_BOX_REG |
+						BEF_AI_HAND_MODEL_GESTURE_CLS | BEF_AI_HAND_MODEL_KEY_POINT, &handInfo, 0);
 					mHandInfo = handInfo;
 					CHECK_BEF_AI_RET_SUCCESS(ret, "gesture info collect failed");
 				}
 			}
-
+            
 			if (mAIEffectEnabled && mAIEffectLoaded) {
                 if (mFaceStickerEnabled) {
                     ret = bef_effect_ai_set_effect(m_renderMangerHandle, mFaceStickerItemPath.c_str());
@@ -712,22 +710,6 @@ int ByteDancePlugin::setParameter(const char *param)
         }
         mFaceStickerItemPath = std::string(path.GetString());
     }
-    
-    if (d.HasMember("plugin.bytedance.mattingEnabled")) {
-        Value& enabled = d["plugin.bytedance.mattingEnabled"];
-        if (!enabled.IsBool()) {
-            return -101;
-        }
-        mMattingEnabled = enabled.GetBool();
-    }
-    
-    if (d.HasMember("plugin.bytedance.mattingModelPath")) {
-        Value& path = d["plugin.bytedance.mattingModelPath"];
-        if (!path.IsString()) {
-            return -101;
-        }
-        mMattingModelPath = std::string(path.GetString());
-    }
 
 	if (d.HasMember("plugin.bytedance.ai.composer.nodes")) {
 		Value& nodes = d["plugin.bytedance.ai.composer.nodes"];
@@ -740,6 +722,7 @@ int ByteDancePlugin::setParameter(const char *param)
 		}
 		free(mAINodes);
 		mAINodeIntensities.clear();
+        mAINodeKeys.clear();
 
 		mAINodeCount = nodes.Size();
 		mAINodes = (char **)malloc(nodes.Size() * sizeof(char *));
@@ -780,8 +763,9 @@ const char* ByteDancePlugin::getParameter(const char* key)
 		char* authMsg;
 		int len;
 		bef_effect_result_t result = bef_effect_ai_get_auth_msg(&authMsg, &len);
+        CHECK_BEF_AI_RET_SUCCESS(result, "bef_effect_ai_get_auth_msg: get auth msg failed !");
 		auto nonce = rand();
-		int timestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		int64_t timestamp = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 		const char* secret = mLicenseSecret.c_str();
 		const char* key = mLicenseKey.c_str();
 		// payload['digest'] = crypto.HMAC_SHA256(secret, bytes(key + str(payload['nonce']) + str(payload['timestamp']) + authMsg).encode('utf-8'))
@@ -800,7 +784,7 @@ const char* ByteDancePlugin::getParameter(const char* key)
 		writer.Int(nonce);
 
 		writer.Key("timestamp");
-		writer.Int(timestamp);
+        writer.Int64(timestamp);
 
 		writer.Key("digest");
 		writer.String(hexitize(digest).c_str());
@@ -847,7 +831,7 @@ const char* ByteDancePlugin::getParameter(const char* key)
 			vector<uint8_t> lic_b = base64_decode(mLicenseData);
 			std::string res;
 			res.insert(res.begin(), lic_b.begin(), lic_b.end());
-			// 生成license 文件
+
 			std::string lic_file_name = "";
 			std::string lic_file_path = "";
 			std::string sep = "";
@@ -863,7 +847,6 @@ const char* ByteDancePlugin::getParameter(const char* key)
                 lic_file_name = "license.licbag";
             #endif
 
-			// 传入的路径不存在路径划分字符
 			lic_file_path += mLicenseDirPath;
 			if (sep != last_str) {
 				lic_file_path += sep;
@@ -887,7 +870,6 @@ const char* ByteDancePlugin::getParameter(const char* key)
 
 
 
-			// 存放目录不存在
 			if (!dir_is_exist) {
 				writer.Int(-101);
 				writer.Key("msg");
@@ -898,7 +880,6 @@ const char* ByteDancePlugin::getParameter(const char* key)
 				writer.String("");
 			}
 			else {
-				// 文件存在 开始写入
 				ofstream ofs;
 				ofs.open(lic_file_path.c_str(), ios::binary);
 				ofs.write(res.c_str(), res.size());
@@ -923,19 +904,19 @@ const char* ByteDancePlugin::getParameter(const char* key)
 
 	}
 	else if (strncmp(key, "plugin.bytedance.hand.info", strlen(key)) == 0) {
-		writer.StartArray();
-		for (int i = 0; i < mHandInfo.hand_count; i++) {
-			bef_ai_hand hand = mHandInfo.p_hands[i];
-			writer.StartObject();
-			writer.Key("action");
-			writer.Int(hand.action);
+    writer.StartArray();
+    for (int i = 0; i < mHandInfo.hand_count; i++) {
+        bef_ai_hand hand = mHandInfo.p_hands[i];
+        writer.StartObject();
+        writer.Key("action");
+        writer.Int(hand.action);
 
-			writer.Key("seq_action");
-			writer.Double(hand.seq_action);
-			writer.EndObject();
-		}
+        writer.Key("seq_action");
+        writer.Double(hand.seq_action);
+        writer.EndObject();
+    }
 
-		writer.EndArray();
+    writer.EndArray();
 		return strBuf.GetString();
 	}
 	return "";
